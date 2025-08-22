@@ -5,17 +5,24 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavHostController
 import com.marki.willow.navigation.Screen
+import com.marki.willow.ui.viewmodel.HomeViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun HomeScreen(navController: NavHostController) {
+fun HomeScreen(
+    navController: NavHostController,
+    viewModel: HomeViewModel = hiltViewModel()
+) {
     Scaffold(
         topBar = {
             TopAppBar(
@@ -23,6 +30,8 @@ fun HomeScreen(navController: NavHostController) {
             )
         }
     ) { paddingValues ->
+        val summaryData by viewModel.summaryData.collectAsStateWithLifecycle()
+        
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
@@ -36,6 +45,10 @@ fun HomeScreen(navController: NavHostController) {
                     style = MaterialTheme.typography.headlineMedium,
                     fontWeight = FontWeight.Bold
                 )
+            }
+            
+            item {
+                SummaryCard(summaryData = summaryData)
             }
             
             item {
@@ -133,5 +146,84 @@ fun HealthCard(
                 fontWeight = FontWeight.Medium
             )
         }
+    }
+}
+
+@Composable
+fun SummaryCard(summaryData: com.marki.willow.ui.viewmodel.HealthSummary) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.primaryContainer
+        )
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Text(
+                text = "Weekly Summary",
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onPrimaryContainer
+            )
+            
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                SummaryItem(
+                    title = "Sleep Quality",
+                    value = String.format("%.1f/5", summaryData.weeklyAverageSleepQuality),
+                    color = MaterialTheme.colorScheme.onPrimaryContainer
+                )
+                
+                SummaryItem(
+                    title = "Exercise",
+                    value = "${summaryData.weeklyExerciseMinutes} min",
+                    color = MaterialTheme.colorScheme.onPrimaryContainer
+                )
+            }
+            
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                SummaryItem(
+                    title = "Calories Burned",
+                    value = "${summaryData.weeklyCaloriesBurned} cal",
+                    color = MaterialTheme.colorScheme.onPrimaryContainer
+                )
+                
+                SummaryItem(
+                    title = "Conflicts",
+                    value = summaryData.unresolvedConflicts.toString(),
+                    color = if (summaryData.unresolvedConflicts > 0) Color(0xFFFF5722) else Color(0xFF4CAF50)
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun SummaryItem(
+    title: String,
+    value: String,
+    color: Color
+) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Text(
+            text = value,
+            style = MaterialTheme.typography.headlineSmall,
+            fontWeight = FontWeight.Bold,
+            color = color
+        )
+        Text(
+            text = title,
+            style = MaterialTheme.typography.bodySmall,
+            color = color.copy(alpha = 0.8f)
+        )
     }
 }

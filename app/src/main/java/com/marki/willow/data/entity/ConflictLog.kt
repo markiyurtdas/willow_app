@@ -8,9 +8,9 @@ import java.time.LocalDateTime
 data class ConflictLog(
     @PrimaryKey val id: String,
     val conflictType: ConflictType,
-    val primaryDataId: String, // ID of the main conflicting data
-    val conflictingDataId: String, // ID of the conflicting data
-    val conflictDetails: String, // JSON string describing the conflict
+    val primaryDataId: String,
+    val conflictingDataId: String,
+    val conflictDetails: String,
     val isResolved: Boolean = false,
     val resolution: ConflictResolution? = null,
     val createdAt: LocalDateTime = LocalDateTime.now(),
