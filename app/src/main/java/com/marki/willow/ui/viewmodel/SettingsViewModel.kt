@@ -12,7 +12,6 @@ import com.marki.willow.data.repository.SleepLogRepository
 import com.marki.willow.data.repository.SyncResult
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -221,65 +220,54 @@ class SettingsViewModel @Inject constructor(
         }
     }
     
-    fun openHealthConnectSettings(): Intent {
+    fun openHealthConnectApp(): Intent {
         println("zxc SettingsViewModel: Opening Health Connect settings")
         return Intent(HealthConnectClient.ACTION_HEALTH_CONNECT_SETTINGS)
     }
     
-    fun checkHealthConnectStatusManually() {
+    fun importFromHealthConnect() {
         viewModelScope.launch {
-            println("zxc SettingsViewModel: Manual Health Connect status check started")
-            _syncMessage.value = "Checking Health Connect status..."
+            println("zxc SettingsViewModel: Starting Health Connect data import...")
+            _syncMessage.value = "Importing data from Health Connect..."
             _syncState.value = SyncState.Syncing
             
             try {
-                // Give Health Connect time to initialize if needed
-                delay(2000)
+                // Import sleep data
+                val sleepResult = sleepLogRepository.syncFromHealthConnect()
                 
-                // Retry mechanism - try 3 times with delay
-                for (attempt in 0 until 3) {
-                    println("zxc SettingsViewModel: Check attempt ${attempt + 1}")
-                    
-                    permissionManager.checkPermissionStatus()
-                    
-                    // Wait a bit for state to update
-                    delay(1000)
-                    
-                    val currentState = permissionManager.permissionState.value
-                    println("zxc SettingsViewModel: Current state after attempt ${attempt + 1}: $currentState")
-                    
-                    // If we got a definitive state (not UNKNOWN), break
-                    if (currentState != PermissionState.UNKNOWN) {
-                        break
-                    }
-                    
-                    // Wait before next attempt (except for last attempt)
-                    if (attempt < 2) {
-                        delay(2000)
-                    }
+                // Import exercise data  
+                val exerciseResult = exerciseLogRepository.syncFromHealthConnect()
+                
+                val sleepCount = if (sleepResult is SyncResult.Success) sleepResult.synced else 0
+                val exerciseCount = if (exerciseResult is SyncResult.Success) exerciseResult.synced else 0
+                val sleepSkipped = if (sleepResult is SyncResult.Success) sleepResult.skipped else 0
+                val exerciseSkipped = if (exerciseResult is SyncResult.Success) exerciseResult.skipped else 0
+                
+                val totalImported = sleepCount + exerciseCount
+                val totalSkipped = sleepSkipped + exerciseSkipped
+                
+                _syncMessage.value = when {
+                    totalImported > 0 && totalSkipped > 0 -> 
+                        "Import completed! $totalImported new records imported, $totalSkipped duplicates skipped"
+                    totalImported > 0 -> 
+                        "Import completed! $totalImported new records imported"
+                    totalSkipped > 0 -> 
+                        "No new records found. $totalSkipped existing records skipped"
+                    else -> 
+                        "No health data found in Health Connect"
                 }
+                _syncState.value = SyncState.Success
                 
-                // Use current value instead of infinite collect
-                val state = permissionManager.permissionState.value
-                println("zxc SettingsViewModel: Final permission state: $state")
-                _permissionState.value = state
-                
-                _syncMessage.value = when (state) {
-                    PermissionState.GRANTED -> "Health Connect is ready!"
-                    PermissionState.DENIED, PermissionState.UNKNOWN -> "Health Connect found but permissions needed"
-                    PermissionState.UPDATE_REQUIRED -> "Health Connect needs update or restart"
-                    PermissionState.NOT_AVAILABLE -> "Health Connect is not available"
-                    PermissionState.ERROR -> "Error checking Health Connect"
-                }
-                _syncState.value = SyncState.Idle
+                println("zxc SettingsViewModel: Import completed - Sleep: $sleepCount imported, $sleepSkipped skipped | Exercise: $exerciseCount imported, $exerciseSkipped skipped")
                 
             } catch (e: Exception) {
-                println("zxc SettingsViewModel: Manual check error: $e")
-                _syncMessage.value = "Failed to check Health Connect status"
+                println("zxc SettingsViewModel: Import error: $e")
+                _syncMessage.value = "Import failed: ${e.message ?: "Unknown error"}"
                 _syncState.value = SyncState.Error
             }
         }
     }
+    
 }
 
 enum class SyncState {

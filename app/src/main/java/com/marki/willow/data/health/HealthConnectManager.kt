@@ -119,18 +119,34 @@ class HealthConnectManager @Inject constructor(
         endTime: Instant? = null
     ): List<SleepSessionRecord> {
         return try {
+            println("zxc HealthConnectManager: Starting to read sleep records...")
+            
             val timeRangeFilter = if (startTime != null && endTime != null) {
+                println("zxc HealthConnectManager: Using custom time range: $startTime to $endTime")
                 TimeRangeFilter.between(startTime, endTime)
             } else {
                 // Read last 30 days if no time range specified
                 val thirtyDaysAgo = Instant.now().minusSeconds(30 * 24 * 60 * 60)
-                TimeRangeFilter.between(thirtyDaysAgo, Instant.now())
+                val now = Instant.now()
+                println("zxc HealthConnectManager: Using default time range: $thirtyDaysAgo to $now")
+                TimeRangeFilter.between(thirtyDaysAgo, now)
             }
             
             val request = ReadRecordsRequest<SleepSessionRecord>(timeRangeFilter)
+            println("zxc HealthConnectManager: Making API call to read sleep records...")
             
-            healthConnectClient.readRecords(request).records
+            val response = healthConnectClient.readRecords(request)
+            val records = response.records
+            
+            println("zxc HealthConnectManager: Successfully fetched ${records.size} sleep records")
+            records.forEachIndexed { index, record ->
+                println("zxc HealthConnectManager: Sleep record $index: ${record.startTime} to ${record.endTime}, notes: ${record.notes}")
+            }
+            
+            records
         } catch (e: Exception) {
+            println("zxc HealthConnectManager: Error reading sleep records: $e")
+            e.printStackTrace()
             emptyList()
         }
     }
@@ -143,18 +159,34 @@ class HealthConnectManager @Inject constructor(
         endTime: Instant? = null
     ): List<ExerciseSessionRecord> {
         return try {
+            println("zxc HealthConnectManager: Starting to read exercise records...")
+            
             val timeRangeFilter = if (startTime != null && endTime != null) {
+                println("zxc HealthConnectManager: Using custom time range: $startTime to $endTime")
                 TimeRangeFilter.between(startTime, endTime)
             } else {
                 // Read last 30 days if no time range specified
                 val thirtyDaysAgo = Instant.now().minusSeconds(30 * 24 * 60 * 60)
-                TimeRangeFilter.between(thirtyDaysAgo, Instant.now())
+                val now = Instant.now()
+                println("zxc HealthConnectManager: Using default time range: $thirtyDaysAgo to $now")
+                TimeRangeFilter.between(thirtyDaysAgo, now)
             }
             
             val request = ReadRecordsRequest<ExerciseSessionRecord>(timeRangeFilter)
+            println("zxc HealthConnectManager: Making API call to read exercise records...")
             
-            healthConnectClient.readRecords(request).records
+            val response = healthConnectClient.readRecords(request)
+            val records = response.records
+            
+            println("zxc HealthConnectManager: Successfully fetched ${records.size} exercise records")
+            records.forEachIndexed { index, record ->
+                println("zxc HealthConnectManager: Exercise record $index: ${record.startTime} to ${record.endTime}, type: ${record.exerciseType}, notes: ${record.notes}")
+            }
+            
+            records
         } catch (e: Exception) {
+            println("zxc HealthConnectManager: Error reading exercise records: $e")
+            e.printStackTrace()
             emptyList()
         }
     }

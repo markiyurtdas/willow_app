@@ -1,6 +1,8 @@
 package com.marki.willow.data.repository
 
 import com.marki.willow.data.dao.SleepLogDao
+import com.marki.willow.data.entity.ConflictLog
+import com.marki.willow.data.entity.ConflictType
 import com.marki.willow.data.entity.DataSource
 import com.marki.willow.data.entity.SleepLog
 import com.marki.willow.data.health.HealthConnectRepository
@@ -12,7 +14,8 @@ import javax.inject.Singleton
 @Singleton
 class SleepLogRepository @Inject constructor(
     private val sleepLogDao: SleepLogDao,
-    private val healthConnectRepository: HealthConnectRepository
+    private val healthConnectRepository: HealthConnectRepository,
+    private val conflictLogRepository: ConflictLogRepository
 ) {
     
     fun getAllSleepLogs(): Flow<List<SleepLog>> = sleepLogDao.getAllSleepLogs()
@@ -52,11 +55,19 @@ class SleepLogRepository @Inject constructor(
                 endTime ?: LocalDateTime.now().plusDays(1)
             )
             
-            val newHealthConnectData = healthConnectData.filterNot { healthLog ->
-                existingSleepLogs.any { existingLog ->
-                    existingLog.bedTime == healthLog.bedTime && 
-                    existingLog.wakeTime == healthLog.wakeTime &&
-                    existingLog.source == DataSource.GOOGLE_HEALTH
+            val (newHealthConnectData, conflicts) = filterHealthConnectDataWithConflictDetection(
+                healthConnectData, 
+                existingSleepLogs
+            )
+            
+            // Log conflicts if found
+            if (conflicts.isNotEmpty()) {
+                conflicts.forEach { conflict ->
+                    conflictLogRepository.insertConflictLog(conflict)
+                }
+                println("zxc SleepLogRepository: Found ${conflicts.size} sleep conflicts")
+                conflicts.forEach { conflict ->
+                    println("zxc SleepLogRepository: Conflict - ${conflict.conflictDetails}")
                 }
             }
             
@@ -64,7 +75,11 @@ class SleepLogRepository @Inject constructor(
                 insertSleepLogs(newHealthConnectData)
             }
             
-            SyncResult.Success(synced = newHealthConnectData.size, skipped = healthConnectData.size - newHealthConnectData.size)
+            val totalSkipped = healthConnectData.size - newHealthConnectData.size
+            SyncResult.Success(
+                synced = newHealthConnectData.size, 
+                skipped = totalSkipped
+            )
         } catch (e: Exception) {
             SyncResult.Error(e.message ?: "Unknown error occurred")
         }
@@ -117,5 +132,77 @@ class SleepLogRepository @Inject constructor(
         } catch (e: Exception) {
             SyncResult.Error(e.message ?: "Unknown error occurred")
         }
+    }
+    
+    /**
+     * Filter Health Connect data and detect conflicts with existing sleep logs
+     */
+    private suspend fun filterHealthConnectDataWithConflictDetection(
+        healthConnectData: List<SleepLog>,
+        existingSleepLogs: List<SleepLog>
+    ): Pair<List<SleepLog>, List<ConflictLog>> {
+        val newData = mutableListOf<SleepLog>()
+        val conflicts = mutableListOf<ConflictLog>()
+        
+        healthConnectData.forEach { healthLog ->
+            var hasConflict = false
+            var exactDuplicate = false
+            
+            existingSleepLogs.forEach { existingLog ->
+                // Check for exact duplicate (same times and same source)
+                if (existingLog.bedTime == healthLog.bedTime && 
+                    existingLog.wakeTime == healthLog.wakeTime &&
+                    existingLog.source == DataSource.GOOGLE_HEALTH) {
+                    exactDuplicate = true
+                    return@forEach
+                }
+                
+                // Check for time overlap between different sources
+                if (existingLog.source != DataSource.GOOGLE_HEALTH && 
+                    doSleepTimesOverlap(existingLog, healthLog)) {
+                    
+                    hasConflict = true
+                    val conflictDetails = buildString {
+                        append("Sleep time overlap detected: ")
+                        append("Existing ${existingLog.source.name} sleep (${existingLog.bedTime} - ${existingLog.wakeTime}) ")
+                        append("overlaps with Health Connect sleep (${healthLog.bedTime} - ${healthLog.wakeTime})")
+                    }
+                    
+                    val conflict = ConflictLog(
+                        id = java.util.UUID.randomUUID().toString(),
+                        conflictType = ConflictType.SLEEP_TIME_OVERLAP,
+                        primaryDataId = existingLog.id,
+                        conflictingDataId = healthLog.id,
+                        conflictDetails = conflictDetails
+                    )
+                    conflicts.add(conflict)
+                    
+                    println("zxc SleepLogRepository: Sleep overlap conflict - $conflictDetails")
+                }
+            }
+            
+            // Only add if it's not an exact duplicate
+            // Still add conflicting data but log the conflict
+            if (!exactDuplicate) {
+                newData.add(healthLog)
+            }
+        }
+        
+        return Pair(newData, conflicts)
+    }
+    
+    /**
+     * Check if two sleep sessions have overlapping times
+     */
+    private fun doSleepTimesOverlap(sleep1: SleepLog, sleep2: SleepLog): Boolean {
+        // Convert to comparable instants
+        val sleep1Start = sleep1.bedTime
+        val sleep1End = sleep1.wakeTime
+        val sleep2Start = sleep2.bedTime
+        val sleep2End = sleep2.wakeTime
+        
+        // Check for any overlap
+        return !(sleep1End.isBefore(sleep2Start) || sleep1End.isEqual(sleep2Start) ||
+                 sleep2End.isBefore(sleep1Start) || sleep2End.isEqual(sleep1Start))
     }
 }

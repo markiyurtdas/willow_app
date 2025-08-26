@@ -104,15 +104,15 @@ fun SettingsScreen(
                         println("zxc SettingsScreen: Launching permission request")
                         permissionLauncher.launch(healthConnectPermissions)
                     },
-                    onOpenSettings = {
-                        println("zxc SettingsScreen: Opening Health Connect settings")
+                    onOpenHealthConnect = {
+                        println("zxc SettingsScreen: Opening Health Connect app")
                         try {
-                            context.startActivity(viewModel.openHealthConnectSettings())
+                            context.startActivity(viewModel.openHealthConnectApp())
                         } catch (e: Exception) {
-                            println("zxc SettingsScreen: Failed to open Health Connect settings: $e")
+                            println("zxc SettingsScreen: Failed to open Health Connect app: $e")
                         }
                     },
-                    onCheckStatus = viewModel::checkHealthConnectStatusManually
+                    onImportFromHealthConnect = viewModel::importFromHealthConnect
                 )
             }
             
@@ -150,8 +150,8 @@ private fun HealthConnectSection(
     onImport: () -> Unit,
     onExport: () -> Unit,
     onRequestPermissions: () -> Unit,
-    onOpenSettings: () -> Unit,
-    onCheckStatus: () -> Unit
+    onOpenHealthConnect: () -> Unit,
+    onImportFromHealthConnect: () -> Unit
 ) {
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(
@@ -212,55 +212,49 @@ private fun HealthConnectSection(
                 PermissionState.UPDATE_REQUIRED -> {
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Text(
-                            text = "Health Connect needs to be updated or restarted",
+                            text = "Health Connect provider update required (Status 3)",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                         
                         Button(
-                            onClick = onOpenSettings,
+                            onClick = onOpenHealthConnect,
                             modifier = Modifier.fillMaxWidth()
                         ) {
-                            Text("Open Health Connect Settings")
+                            Text("Open Health Connect App")
                         }
                         
-                        Text(
-                            text = "Try restarting Health Connect or updating it from the settings",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
+                        OutlinedButton(
+                            onClick = onImportFromHealthConnect,
+                            enabled = syncState != SyncState.Syncing,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text("Import from Health Connect (Works Despite Status)")
+                        }
                     }
                 }
                 PermissionState.UNKNOWN -> {
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Text(
-                            text = "Health Connect status unknown - check connection",
+                            text = "Health Connect status checking...",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                         
                         Button(
-                            onClick = onCheckStatus,
+                            onClick = onOpenHealthConnect,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text("Open Health Connect App")
+                        }
+                        
+                        OutlinedButton(
+                            onClick = onImportFromHealthConnect,
                             enabled = syncState != SyncState.Syncing,
                             modifier = Modifier.fillMaxWidth()
                         ) {
-                            if (syncState == SyncState.Syncing) {
-                                CircularProgressIndicator(
-                                    modifier = Modifier.size(16.dp),
-                                    strokeWidth = 2.dp
-                                )
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text("Checking...")
-                            } else {
-                                Text("Check Health Connect Status")
-                            }
+                            Text("Import from Health Connect")
                         }
-                        
-                        Text(
-                            text = "This will manually check Health Connect with retry mechanism",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
                     }
                 }
                 PermissionState.DENIED -> {
@@ -328,6 +322,23 @@ private fun HealthConnectSection(
                                 Spacer(modifier = Modifier.width(4.dp))
                                 Text("Export")
                             }
+                        }
+                        
+                        // Import from Health Connect button
+                        OutlinedButton(
+                            onClick = onImportFromHealthConnect,
+                            enabled = syncState != SyncState.Syncing,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text("Import from Health Connect")
+                        }
+                        
+                        // Open Health Connect app button
+                        OutlinedButton(
+                            onClick = onOpenHealthConnect,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text("🏥 Open Health Connect App")
                         }
                     }
                 }
