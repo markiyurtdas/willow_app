@@ -1,18 +1,70 @@
 package com.marki.willow.ui.screens
 
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.health.connect.client.PermissionController
+import androidx.health.connect.client.permission.HealthPermission
+import androidx.health.connect.client.records.ExerciseSessionRecord
+import androidx.health.connect.client.records.SleepSessionRecord
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavHostController
+import com.marki.willow.data.health.PermissionState
+import com.marki.willow.ui.viewmodel.SettingsViewModel
+import com.marki.willow.ui.viewmodel.SyncState
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SettingsScreen(navController: NavHostController) {
+fun SettingsScreen(
+    navController: NavHostController,
+    viewModel: SettingsViewModel = hiltViewModel()
+) {
+    val context = LocalContext.current
+    val syncState by viewModel.syncState.collectAsStateWithLifecycle()
+    val permissionState by viewModel.permissionState.collectAsStateWithLifecycle()
+    val syncMessage by viewModel.syncMessage.collectAsStateWithLifecycle()
+    
+    // Health Connect permissions we need
+    val healthConnectPermissions = setOf(
+        HealthPermission.getReadPermission(SleepSessionRecord::class),
+        HealthPermission.getWritePermission(SleepSessionRecord::class),
+        HealthPermission.getReadPermission(ExerciseSessionRecord::class),
+        HealthPermission.getWritePermission(ExerciseSessionRecord::class)
+    )
+    
+    // Create permission request launcher
+    val permissionLauncher = rememberLauncherForActivityResult(
+        contract = PermissionController.createRequestPermissionResultContract(),
+        onResult = { granted ->
+            println("zxc SettingsScreen: Permission result: $granted")
+            // Refresh permission state after user grants/denies permissions
+            viewModel.onPermissionResult(granted)
+        }
+    )
+    
+    // Show snackbar for sync messages
+    LaunchedEffect(syncMessage) {
+        if (syncMessage.isNotEmpty()) {
+            // Auto-clear message after 3 seconds
+            kotlinx.coroutines.delay(3000)
+            viewModel.clearSyncMessage()
+        }
+    }
+    
     Scaffold(
         topBar = {
             TopAppBar(
@@ -25,22 +77,300 @@ fun SettingsScreen(navController: NavHostController) {
             )
         }
     ) { paddingValues ->
-        Column(
+        LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
                 .padding(16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
+            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            Text(
-                text = "Settings and Google Health sync will be here",
-                style = MaterialTheme.typography.bodyLarge
-            )
-            Text(
-                text = "Features: Sync preferences, data source priorities",
-                style = MaterialTheme.typography.bodyMedium
-            )
+            item {
+                Text(
+                    text = "Settings",
+                    style = MaterialTheme.typography.headlineMedium,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+            
+            item {
+                HealthConnectSection(
+                    syncState = syncState,
+                    permissionState = permissionState,
+                    syncMessage = syncMessage,
+                    onSyncAll = viewModel::syncWithHealthConnect,
+                    onImport = viewModel::syncFromHealthConnect,
+                    onExport = viewModel::exportToHealthConnect,
+                    onRequestPermissions = {
+                        println("zxc SettingsScreen: Launching permission request")
+                        permissionLauncher.launch(healthConnectPermissions)
+                    },
+                    onOpenSettings = {
+                        println("zxc SettingsScreen: Opening Health Connect settings")
+                        try {
+                            context.startActivity(viewModel.openHealthConnectSettings())
+                        } catch (e: Exception) {
+                            println("zxc SettingsScreen: Failed to open Health Connect settings: $e")
+                        }
+                    },
+                    onCheckStatus = viewModel::checkHealthConnectStatusManually
+                )
+            }
+            
+            // Future settings sections can be added here
+            item {
+                Card(modifier = Modifier.fillMaxWidth()) {
+                    Column(
+                        modifier = Modifier.padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Text(
+                            text = "App Settings",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                        
+                        Text(
+                            text = "More settings coming soon...",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            }
         }
     }
+}
+
+@Composable
+private fun HealthConnectSection(
+    syncState: SyncState,
+    permissionState: PermissionState,
+    syncMessage: String,
+    onSyncAll: () -> Unit,
+    onImport: () -> Unit,
+    onExport: () -> Unit,
+    onRequestPermissions: () -> Unit,
+    onOpenSettings: () -> Unit,
+    onCheckStatus: () -> Unit
+) {
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "Health Connect",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold
+                )
+                
+                PermissionStatusChip(permissionState = permissionState)
+            }
+            
+            Text(
+                text = "Sync your health data with Google Health Connect and other health apps",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            
+            if (syncMessage.isNotEmpty()) {
+                Card(
+                    colors = CardDefaults.cardColors(
+                        containerColor = when (syncState) {
+                            SyncState.Success -> MaterialTheme.colorScheme.primaryContainer
+                            SyncState.Error -> MaterialTheme.colorScheme.errorContainer
+                            else -> MaterialTheme.colorScheme.surfaceVariant
+                        }
+                    )
+                ) {
+                    Text(
+                        text = syncMessage,
+                        modifier = Modifier.padding(12.dp),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = when (syncState) {
+                            SyncState.Success -> MaterialTheme.colorScheme.onPrimaryContainer
+                            SyncState.Error -> MaterialTheme.colorScheme.onErrorContainer
+                            else -> MaterialTheme.colorScheme.onSurfaceVariant
+                        }
+                    )
+                }
+            }
+            
+            when (permissionState) {
+                PermissionState.NOT_AVAILABLE -> {
+                    Text(
+                        text = "Health Connect is not available on this device",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error
+                    )
+                }
+                PermissionState.UPDATE_REQUIRED -> {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text(
+                            text = "Health Connect needs to be updated or restarted",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        
+                        Button(
+                            onClick = onOpenSettings,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text("Open Health Connect Settings")
+                        }
+                        
+                        Text(
+                            text = "Try restarting Health Connect or updating it from the settings",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+                PermissionState.UNKNOWN -> {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text(
+                            text = "Health Connect status unknown - check connection",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        
+                        Button(
+                            onClick = onCheckStatus,
+                            enabled = syncState != SyncState.Syncing,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            if (syncState == SyncState.Syncing) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(16.dp),
+                                    strokeWidth = 2.dp
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text("Checking...")
+                            } else {
+                                Text("Check Health Connect Status")
+                            }
+                        }
+                        
+                        Text(
+                            text = "This will manually check Health Connect with retry mechanism",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+                PermissionState.DENIED -> {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text(
+                            text = "Health Connect permissions are required to sync your health data",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        
+                        Button(
+                            onClick = onRequestPermissions,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text("Grant Health Connect Permissions")
+                        }
+                        
+                        Text(
+                            text = "This will open the Health Connect permissions dialog",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+                PermissionState.GRANTED -> {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Button(
+                            onClick = onSyncAll,
+                            enabled = syncState != SyncState.Syncing,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            if (syncState == SyncState.Syncing) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(16.dp),
+                                    strokeWidth = 2.dp
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                            } else {
+                                Icon(Icons.Default.Check, contentDescription = null)
+                                Spacer(modifier = Modifier.width(8.dp))
+                            }
+                            Text("Full Sync (Two-way)")
+                        }
+                        
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            OutlinedButton(
+                                onClick = onImport,
+                                enabled = syncState != SyncState.Syncing,
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Icon(Icons.Default.Add, contentDescription = null)
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text("Import")
+                            }
+                            
+                            OutlinedButton(
+                                onClick = onExport,
+                                enabled = syncState != SyncState.Syncing,
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Icon(Icons.Default.Warning, contentDescription = null)
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text("Export")
+                            }
+                        }
+                    }
+                }
+                PermissionState.ERROR -> {
+                    Text(
+                        text = "Error accessing Health Connect",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error
+                    )
+                    
+                    OutlinedButton(
+                        onClick = onRequestPermissions,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("Retry")
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun PermissionStatusChip(permissionState: PermissionState) {
+    val (text, color) = when (permissionState) {
+        PermissionState.GRANTED -> "Connected" to MaterialTheme.colorScheme.primary
+        PermissionState.DENIED -> "Not Connected" to MaterialTheme.colorScheme.error
+        PermissionState.NOT_AVAILABLE -> "Unavailable" to MaterialTheme.colorScheme.outline
+        PermissionState.UPDATE_REQUIRED -> "Update Required" to MaterialTheme.colorScheme.error
+        PermissionState.ERROR -> "Error" to MaterialTheme.colorScheme.error
+        PermissionState.UNKNOWN -> "Checking..." to MaterialTheme.colorScheme.outline
+    }
+    
+    AssistChip(
+        onClick = { },
+        label = {
+            Text(
+                text = text,
+                style = MaterialTheme.typography.labelSmall
+            )
+        },
+        colors = AssistChipDefaults.assistChipColors(
+            labelColor = color
+        )
+    )
 }

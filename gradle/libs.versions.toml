@@ -11,7 +11,7 @@ composeBom = "2024.09.00"
 roomVersion = "2.6.1"
 navigationCompose = "2.8.3"
 lifecycleViewModel = "2.8.7"
-healthConnect = "1.1.0-alpha10"
+healthConnect = "1.2.0-alpha01"
 kotlinxCoroutines = "1.9.0"
 
 [libraries]

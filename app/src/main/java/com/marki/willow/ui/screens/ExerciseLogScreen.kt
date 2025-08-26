@@ -9,6 +9,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
@@ -27,6 +28,8 @@ fun ExerciseLogScreen(
     navController: NavHostController,
     viewModel: ExerciseLogViewModel = hiltViewModel()
 ) {
+    val context = LocalContext.current
+    var showStartTimePicker by remember { mutableStateOf(false) }
     Scaffold(
         topBar = {
             TopAppBar(
@@ -114,8 +117,7 @@ fun ExerciseLogScreen(
                         
                         OutlinedButton(
                             onClick = {
-                                val now = LocalDateTime.now()
-                                viewModel.setStartTime(now)
+                                showStartTimePicker = true
                             },
                             modifier = Modifier.fillMaxWidth()
                         ) {
@@ -242,5 +244,56 @@ fun ExerciseLogScreen(
                 }
             }
         }
+        
+        if (showStartTimePicker) {
+            TimePickerDialog(
+                onTimeSelected = { hour: Int, minute: Int ->
+                    val now = LocalDateTime.now()
+                    val selectedTime = now.withHour(hour).withMinute(minute).withSecond(0).withNano(0)
+                    viewModel.setStartTime(selectedTime)
+                    showStartTimePicker = false
+                },
+                onDismiss = { showStartTimePicker = false },
+                title = "Select Start Time",
+                initialTime = startTime ?: LocalDateTime.now()
+            )
+        }
     }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun TimePickerDialog(
+    onTimeSelected: (Int, Int) -> Unit,
+    onDismiss: () -> Unit,
+    title: String,
+    initialTime: LocalDateTime
+) {
+    val timePickerState = rememberTimePickerState(
+        initialHour = initialTime.hour,
+        initialMinute = initialTime.minute,
+        is24Hour = true
+    )
+    
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(title) },
+        text = {
+            TimePicker(state = timePickerState)
+        },
+        confirmButton = {
+            TextButton(
+                onClick = {
+                    onTimeSelected(timePickerState.hour, timePickerState.minute)
+                }
+            ) {
+                Text("OK")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel")
+            }
+        }
+    )
 }

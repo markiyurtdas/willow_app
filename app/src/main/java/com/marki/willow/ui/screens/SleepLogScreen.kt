@@ -12,6 +12,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -20,6 +21,7 @@ import androidx.navigation.NavHostController
 import com.marki.willow.ui.viewmodel.SleepLogViewModel
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
+import java.util.Calendar
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -27,6 +29,10 @@ fun SleepLogScreen(
     navController: NavHostController,
     viewModel: SleepLogViewModel = hiltViewModel()
 ) {
+    val context = LocalContext.current
+    var showBedTimePicker by remember { mutableStateOf(false) }
+    var showWakeTimePicker by remember { mutableStateOf(false) }
+    
     Scaffold(
         topBar = {
             TopAppBar(
@@ -74,8 +80,7 @@ fun SleepLogScreen(
                         
                         OutlinedButton(
                             onClick = {
-                                val now = LocalDateTime.now().minusHours(8)
-                                viewModel.setBedTime(now)
+                                showBedTimePicker = true
                             },
                             modifier = Modifier.fillMaxWidth()
                         ) {
@@ -90,8 +95,7 @@ fun SleepLogScreen(
                         
                         OutlinedButton(
                             onClick = {
-                                val now = LocalDateTime.now()
-                                viewModel.setWakeTime(now)
+                                showWakeTimePicker = true
                             },
                             modifier = Modifier.fillMaxWidth()
                         ) {
@@ -194,5 +198,34 @@ fun SleepLogScreen(
                 }
             }
         }
+        
+        if (showBedTimePicker) {
+            com.marki.willow.ui.screens.TimePickerDialog(
+                onTimeSelected = { hour: Int, minute: Int ->
+                    val now = LocalDateTime.now()
+                    val selectedTime = now.withHour(hour).withMinute(minute).withSecond(0).withNano(0)
+                    viewModel.setBedTime(selectedTime)
+                    showBedTimePicker = false
+                },
+                onDismiss = { showBedTimePicker = false },
+                title = "Select Bed Time",
+                initialTime = bedTime ?: LocalDateTime.now().minusHours(8)
+            )
+        }
+        
+        if (showWakeTimePicker) {
+            com.marki.willow.ui.screens.TimePickerDialog(
+                onTimeSelected = { hour: Int, minute: Int ->
+                    val now = LocalDateTime.now()
+                    val selectedTime = now.withHour(hour).withMinute(minute).withSecond(0).withNano(0)
+                    viewModel.setWakeTime(selectedTime)
+                    showWakeTimePicker = false
+                },
+                onDismiss = { showWakeTimePicker = false },
+                title = "Select Wake Time",
+                initialTime = wakeTime ?: LocalDateTime.now()
+            )
+        }
     }
 }
+
