@@ -45,6 +45,9 @@ class ExerciseLogViewModel @Inject constructor(
     private val _notes = MutableStateFlow("")
     val notes: StateFlow<String> = _notes.asStateFlow()
 
+    private val _conflictMessage = MutableStateFlow<String?>(null)
+    val conflictMessage: StateFlow<String?> = _conflictMessage.asStateFlow()
+
     init {
         loadExerciseLogs()
     }
@@ -87,6 +90,7 @@ class ExerciseLogViewModel @Inject constructor(
         if (startTime != null && _durationMinutes.value > 0) {
             viewModelScope.launch {
                 _isLoading.value = true
+                _conflictMessage.value = null
                 try {
                     val exerciseLog = ExerciseLog(
                         id = UUID.randomUUID().toString(),
@@ -98,8 +102,20 @@ class ExerciseLogViewModel @Inject constructor(
                         notes = _notes.value.takeIf { it.isNotBlank() },
                         source = DataSource.MANUAL
                     )
-                    repository.insertExerciseLog(exerciseLog)
+                    
+                    // Use conflict-aware insertion
+                    val (success, conflicts) = repository.insertExerciseLogWithConflictDetection(exerciseLog)
+                    
+                    if (conflicts.isNotEmpty()) {
+                        val conflictCount = conflicts.size
+                        _conflictMessage.value = "Exercise log saved, but $conflictCount time conflict${if (conflictCount > 1) "s" else ""} detected with existing entries."
+                        println("zxc ExerciseLogViewModel: Saved exercise log with $conflictCount conflicts")
+                    }
+                    
                     clearForm()
+                } catch (e: Exception) {
+                    println("zxc ExerciseLogViewModel: Error saving exercise log: ${e.message}")
+                    _conflictMessage.value = "Error saving exercise log: ${e.message}"
                 } finally {
                     _isLoading.value = false
                 }
@@ -114,6 +130,10 @@ class ExerciseLogViewModel @Inject constructor(
         _intensity.value = ExerciseIntensity.MODERATE
         _caloriesBurned.value = null
         _notes.value = ""
+    }
+
+    fun clearConflictMessage() {
+        _conflictMessage.value = null
     }
 
     fun deleteExerciseLog(exerciseLog: ExerciseLog) {

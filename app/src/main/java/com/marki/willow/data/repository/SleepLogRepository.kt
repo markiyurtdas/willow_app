@@ -29,6 +29,57 @@ class SleepLogRepository @Inject constructor(
     
     suspend fun insertSleepLog(sleepLog: SleepLog) = sleepLogDao.insertSleepLog(sleepLog)
     
+    /**
+     * Insert sleep log with conflict detection against existing entries
+     */
+    suspend fun insertSleepLogWithConflictDetection(sleepLog: SleepLog): Pair<Boolean, List<ConflictLog>> {
+        val conflicts = mutableListOf<ConflictLog>()
+        
+        // Get existing sleep logs in a reasonable time range around the new entry
+        val startRange = sleepLog.bedTime.minusDays(1)
+        val endRange = sleepLog.wakeTime.plusDays(1)
+        val existingSleepLogs = getSleepLogsByDateRange(startRange, endRange)
+        
+        // Check for conflicts with existing entries
+        existingSleepLogs.forEach { existingLog ->
+            // Don't check conflict with itself if updating
+            if (existingLog.id == sleepLog.id) return@forEach
+            
+            // Check for time overlap
+            if (doSleepTimesOverlap(existingLog, sleepLog)) {
+                val conflictDetails = buildString {
+                    append("Sleep time overlap detected: ")
+                    append("New ${sleepLog.source.name} sleep (${sleepLog.bedTime} - ${sleepLog.wakeTime}) ")
+                    append("overlaps with existing ${existingLog.source.name} sleep (${existingLog.bedTime} - ${existingLog.wakeTime})")
+                }
+                
+                val conflict = ConflictLog(
+                    id = java.util.UUID.randomUUID().toString(),
+                    conflictType = ConflictType.SLEEP_TIME_OVERLAP,
+                    primaryDataId = existingLog.id,
+                    conflictingDataId = sleepLog.id,
+                    conflictDetails = conflictDetails
+                )
+                conflicts.add(conflict)
+                
+                println("zxc SleepLogRepository: Manual entry conflict - $conflictDetails")
+            }
+        }
+        
+        // Log conflicts if found
+        if (conflicts.isNotEmpty()) {
+            conflicts.forEach { conflict ->
+                conflictLogRepository.insertConflictLog(conflict)
+            }
+            println("zxc SleepLogRepository: Found ${conflicts.size} conflicts for manual sleep entry")
+        }
+        
+        // Insert the sleep log regardless of conflicts (same behavior as Health Connect sync)
+        insertSleepLog(sleepLog)
+        
+        return Pair(true, conflicts)
+    }
+    
     suspend fun insertSleepLogs(sleepLogs: List<SleepLog>) = sleepLogDao.insertSleepLogs(sleepLogs)
     
     suspend fun updateSleepLog(sleepLog: SleepLog) = sleepLogDao.updateSleepLog(sleepLog)

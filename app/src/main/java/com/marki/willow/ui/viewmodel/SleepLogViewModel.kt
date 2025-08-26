@@ -37,6 +37,9 @@ class SleepLogViewModel @Inject constructor(
     private val _notes = MutableStateFlow("")
     val notes: StateFlow<String> = _notes.asStateFlow()
 
+    private val _conflictMessage = MutableStateFlow<String?>(null)
+    val conflictMessage: StateFlow<String?> = _conflictMessage.asStateFlow()
+
     init {
         loadSleepLogs()
     }
@@ -72,6 +75,7 @@ class SleepLogViewModel @Inject constructor(
         if (bedTime != null && wakeTime != null && wakeTime.isAfter(bedTime)) {
             viewModelScope.launch {
                 _isLoading.value = true
+                _conflictMessage.value = null
                 try {
                     val sleepLog = SleepLog(
                         id = UUID.randomUUID().toString(),
@@ -81,8 +85,20 @@ class SleepLogViewModel @Inject constructor(
                         notes = _notes.value.takeIf { it.isNotBlank() },
                         source = DataSource.MANUAL
                     )
-                    repository.insertSleepLog(sleepLog)
+                    
+                    // Use conflict-aware insertion
+                    val (success, conflicts) = repository.insertSleepLogWithConflictDetection(sleepLog)
+                    
+                    if (conflicts.isNotEmpty()) {
+                        val conflictCount = conflicts.size
+                        _conflictMessage.value = "Sleep log saved, but $conflictCount time conflict${if (conflictCount > 1) "s" else ""} detected with existing entries."
+                        println("zxc SleepLogViewModel: Saved sleep log with $conflictCount conflicts")
+                    }
+                    
                     clearForm()
+                } catch (e: Exception) {
+                    println("zxc SleepLogViewModel: Error saving sleep log: ${e.message}")
+                    _conflictMessage.value = "Error saving sleep log: ${e.message}"
                 } finally {
                     _isLoading.value = false
                 }
@@ -95,6 +111,10 @@ class SleepLogViewModel @Inject constructor(
         _wakeTime.value = null
         _sleepQuality.value = 3
         _notes.value = ""
+    }
+
+    fun clearConflictMessage() {
+        _conflictMessage.value = null
     }
 
     fun deleteSleepLog(sleepLog: SleepLog) {
