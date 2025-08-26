@@ -200,30 +200,26 @@ fun SleepLogScreen(
         }
         
         if (showBedTimePicker) {
-            com.marki.willow.ui.screens.TimePickerDialog(
-                onTimeSelected = { hour: Int, minute: Int ->
-                    val now = LocalDateTime.now()
-                    val selectedTime = now.withHour(hour).withMinute(minute).withSecond(0).withNano(0)
-                    viewModel.setBedTime(selectedTime)
+            com.marki.willow.ui.components.DateTimePickerDialog(
+                onDateTimeSelected = { selectedDateTime ->
+                    viewModel.setBedTime(selectedDateTime)
                     showBedTimePicker = false
                 },
                 onDismiss = { showBedTimePicker = false },
                 title = "Select Bed Time",
-                initialTime = bedTime ?: LocalDateTime.now().minusHours(8)
+                initialDateTime = bedTime ?: LocalDateTime.now().minusHours(8)
             )
         }
         
         if (showWakeTimePicker) {
-            com.marki.willow.ui.screens.TimePickerDialog(
-                onTimeSelected = { hour: Int, minute: Int ->
-                    val now = LocalDateTime.now()
-                    val selectedTime = now.withHour(hour).withMinute(minute).withSecond(0).withNano(0)
-                    viewModel.setWakeTime(selectedTime)
+            com.marki.willow.ui.components.DateTimePickerDialog(
+                onDateTimeSelected = { selectedDateTime ->
+                    viewModel.setWakeTime(selectedDateTime)
                     showWakeTimePicker = false
                 },
                 onDismiss = { showWakeTimePicker = false },
                 title = "Select Wake Time",
-                initialTime = wakeTime ?: LocalDateTime.now()
+                initialDateTime = wakeTime ?: LocalDateTime.now()
             )
         }
     }

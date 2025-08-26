@@ -246,16 +246,14 @@ fun ExerciseLogScreen(
         }
         
         if (showStartTimePicker) {
-            TimePickerDialog(
-                onTimeSelected = { hour: Int, minute: Int ->
-                    val now = LocalDateTime.now()
-                    val selectedTime = now.withHour(hour).withMinute(minute).withSecond(0).withNano(0)
-                    viewModel.setStartTime(selectedTime)
+            com.marki.willow.ui.components.DateTimePickerDialog(
+                onDateTimeSelected = { selectedDateTime ->
+                    viewModel.setStartTime(selectedDateTime)
                     showStartTimePicker = false
                 },
                 onDismiss = { showStartTimePicker = false },
                 title = "Select Start Time",
-                initialTime = startTime ?: LocalDateTime.now()
+                initialDateTime = startTime ?: LocalDateTime.now()
             )
         }
     }
