@@ -116,27 +116,7 @@ fun SettingsScreen(
                 )
             }
             
-            // Future settings sections can be added here
-            item {
-                Card(modifier = Modifier.fillMaxWidth()) {
-                    Column(
-                        modifier = Modifier.padding(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        Text(
-                            text = "App Settings",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.SemiBold
-                        )
-                        
-                        Text(
-                            text = "More settings coming soon...",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                }
-            }
+
         }
     }
 }
@@ -177,29 +157,13 @@ private fun HealthConnectSection(
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
+            Text(
+                text = "Go to Health Connect > App Permissions > find and allow Willow to access your data",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
             
-            if (syncMessage.isNotEmpty()) {
-                Card(
-                    colors = CardDefaults.cardColors(
-                        containerColor = when (syncState) {
-                            SyncState.Success -> MaterialTheme.colorScheme.primaryContainer
-                            SyncState.Error -> MaterialTheme.colorScheme.errorContainer
-                            else -> MaterialTheme.colorScheme.surfaceVariant
-                        }
-                    )
-                ) {
-                    Text(
-                        text = syncMessage,
-                        modifier = Modifier.padding(12.dp),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = when (syncState) {
-                            SyncState.Success -> MaterialTheme.colorScheme.onPrimaryContainer
-                            SyncState.Error -> MaterialTheme.colorScheme.onErrorContainer
-                            else -> MaterialTheme.colorScheme.onSurfaceVariant
-                        }
-                    )
-                }
-            }
+
             
             when (permissionState) {
                 PermissionState.NOT_AVAILABLE -> {
