@@ -83,6 +83,25 @@ app/src/main/java/com/marki/willow/
 - **Conflicts**: Manual conflict detection and resolution
 - **Settings**: Application configuration
 
+## Screenshots
+
+<table>
+  <tr>
+    <td><img src="screenshots/01.jpg" width="200"/></td>
+    <td><img src="screenshots/02.jpg" width="200"/></td>
+    <td><img src="screenshots/03.jpg" width="200"/></td>
+  </tr>
+  <tr>
+    <td><img src="screenshots/04.jpg" width="200"/></td>
+    <td><img src="screenshots/05.jpg" width="200"/></td>
+    <td><img src="screenshots/06.jpg" width="200"/></td>
+  </tr>
+  <tr>
+    <td><img src="screenshots/07.jpg" width="200"/></td>
+    <td></td>
+    <td></td>
+  </tr>
+</table>
 
 ## License
 
